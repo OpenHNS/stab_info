@@ -30,7 +30,7 @@ new g_szTypegroup[][] = {
 	"flashstabbed",
 	"backstabbed",
 	"hardstabbed",
-	"slidestabbet",
+	"slidestabbed",
 	"airstabbed",
 	"duckstabbed"
 };
