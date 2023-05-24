@@ -6,48 +6,44 @@
 #define rg_get_user_team(%0) get_member(%0, m_iTeam)
 
 new Float:g_flBlindTime[MAX_PLAYERS + 1];
-new g_iLerpMsec[MAX_PLAYERS + 1];
 
 enum STAB_INFO {
 	Float:S_DISTANCE,
-	S_BACKTRACK,
 	S_HIT,
 	bool:S_FLASHED,
 	S_TYPESTAB
 }
 
-new g_szHitgroup[8][] = {
-	"Body",
-	"Head",
-	"Chest",
-	"Stomach",
-	"Left hand",
-	"Right hand",
-	"Left leg",
-	"Right leg"
+new g_szHitgroup[][] = {
+	"body",
+	"head",
+	"chest",
+	"stomach",
+	"left hand",
+	"right hand",
+	"left leg",
+	"right leg"
 };
 
-new g_szTypegroup[6][] = {
+new g_szTypegroup[][] = {
 	"stabbed",
 	"flashstabbed",
 	"backstabbed",
 	"hardstabbed",
+	"slidestabbet",
 	"airstabbed",
 	"duckstabbed"
 };
 
 public plugin_init() {
-	register_plugin("Knife stab info", "1.0.0", "OpenHNS"); // Kilabeez, WessTorn
+	register_plugin("Knife stab info", "1.0.1", "OpenHNS"); // Kilabeez, WessTorn
 
 	RegisterHookChain(RG_PlayerBlind, "rgPlayerBlind");
 	RegisterHookChain(RG_CBasePlayer_TraceAttack, "rgTraceAttack");
-
-	register_forward(FM_CmdStart, "fwdCmdStart");
 }
 
 public client_disconnected(id) {
 	g_flBlindTime[id] = 0.0;
-	g_iLerpMsec[id] = 0;
 }
 
 public rgPlayerBlind(id, inflictor, attacker, Float:fadeTime, Float:fadeHold, alpha) {
@@ -57,11 +53,10 @@ public rgPlayerBlind(id, inflictor, attacker, Float:fadeTime, Float:fadeHold, al
 
 public rgTraceAttack(id, attacker, Float:flDamage, Float:vecDir[3], tracehandle) {
 	if(rg_get_user_team(id) == rg_get_user_team(attacker) || get_user_weapon(attacker) != CSW_KNIFE || rg_get_user_godmode(id))
-		return;
+		return HC_CONTINUE;
 
 	new eInfo[STAB_INFO];
 	eInfo[S_DISTANCE] = get_distance_un(attacker, vecDir);
-	eInfo[S_BACKTRACK] = get_backtracked(attacker);
 	eInfo[S_HIT] = get_tr2(tracehandle, TR_iHitgroup);
 	eInfo[S_FLASHED] = get_gametime() <= g_flBlindTime[attacker] ? true : false;
 	eInfo[S_TYPESTAB] = get_type_stab(attacker, flDamage, eInfo[S_DISTANCE], eInfo[S_FLASHED]);
@@ -71,19 +66,15 @@ public rgTraceAttack(id, attacker, Float:flDamage, Float:vecDir[3], tracehandle)
 		get_players(players, pnum);
 		for(new i; i < pnum; i++) {
 			if(players[i] != id && players[i] != attacker)
-				if (eInfo[S_BACKTRACK] > 10)
-					client_print_color(players[i], print_team_blue, "^3%n^1 %s ^3%n^1 (dist: ^3%.2f^1 hit: ^3%s^1 btk: ^3%d^1 ms)", attacker, g_szTypegroup[eInfo[S_TYPESTAB]], id, eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]], eInfo[S_BACKTRACK]);
-				else
-					client_print_color(players[i], print_team_blue, "^3%n^1 %s ^3%n^1 (dist: ^3%.2f^1 hit: ^3%s^1)", attacker, g_szTypegroup[eInfo[S_TYPESTAB]], id, eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]]);
+				client_print_color(players[i], print_team_blue, "^3%n^1 %s ^3%n^1 (dist: ^3%.2f^1 hit: ^3%s^1)", attacker, g_szTypegroup[eInfo[S_TYPESTAB]], id, eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]]);
 		}
 	}
 
-	if (eInfo[S_BACKTRACK] > 10)
-		client_print_color(id, print_team_blue, "^3%n^1 %s ^3you^1. (dist: ^3%.2f^1 hit: ^3%s^1 btk: ^3%d^1 ms)", attacker, g_szTypegroup[eInfo[S_TYPESTAB]], eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]], eInfo[S_BACKTRACK]);
-	else
-		client_print_color(id, print_team_blue, "^3%n^1 %s ^3you^1. (dist: ^3%.2f^1 hit: ^3%s^1)", attacker, g_szTypegroup[eInfo[S_TYPESTAB]], eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]]);
+	client_print_color(id, print_team_blue, "^3%n^1 %s ^3you^1. (dist: ^3%.2f^1 hit: ^3%s^1)", attacker, g_szTypegroup[eInfo[S_TYPESTAB]], eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]]);
 	
 	client_print_color(attacker, print_team_blue, "^3You^1 %s ^3%n^1 (dist: ^3%.2f^1 hit: ^3%s^1)", g_szTypegroup[eInfo[S_TYPESTAB]], id, eInfo[S_DISTANCE], g_szHitgroup[eInfo[S_HIT]]);
+
+	return HC_CONTINUE;
 }
 
 stock rg_get_user_godmode(id) {
@@ -92,9 +83,6 @@ stock rg_get_user_godmode(id) {
 
 	return (val == DAMAGE_NO);
 }
-
-public fwdCmdStart(id, ucmd)
-	g_iLerpMsec[id] = get_ucmd(ucmd, ucmd_lerp_msec);
 
 stock Float:get_distance_un(id, Float:vecDir[3]) {
 	new Float:flStart[3], Float:flEnd[3];
@@ -116,13 +104,6 @@ stock Float:get_distance_un(id, Float:vecDir[3]) {
 	return flFraction == 1.0 ? 0.0 : get_distance_f(flStart, flEnd);
 }
 
-stock get_backtracked(id) {
-	new iPing, iLoss;
-	get_user_ping(id, iPing, iLoss);
-
-	return iPing + g_iLerpMsec[id];
-}
-
 stock get_type_stab(id, Float:flDamage, Float:flDistance, bool:Flashed) {
 	if (Flashed)
 		return 1;
@@ -130,10 +111,34 @@ stock get_type_stab(id, Float:flDamage, Float:flDistance, bool:Flashed) {
 		return 2;
 	else if(flDistance >= 30.0) 
 		return 3;
-	else if(!(get_entvar(id, var_flags) & FL_ONGROUND)) 
+	else if(isUserSurfing(id)) 
 		return 4;
-	else if(get_entvar(id, var_button) & IN_DUCK) 
+	else if(!(get_entvar(id, var_flags) & FL_ONGROUND)) 
 		return 5;
+	else if(get_entvar(id, var_button) & IN_DUCK) 
+		return 6;
 	else
 		return 0;
 }
+
+stock bool:isUserSurfing(id) {
+	static Float:flOrigin[3], Float:flDest[3];
+	get_entvar(id, var_origin, flOrigin);
+	
+	flDest[0] = flOrigin[0];
+	flDest[1] = flOrigin[1];
+	flDest[2] = flOrigin[2] - 1.0;
+
+	static Float:flFraction;
+
+	engfunc(EngFunc_TraceHull, flOrigin, flDest, 0, get_entvar(id, var_flags) & FL_DUCKING ? HULL_HEAD : HULL_HUMAN, id, 0);
+
+	get_tr2(0, TR_flFraction, flFraction);
+
+	if (flFraction >= 1.0) 
+		return false;
+	
+	get_tr2(0, TR_vecPlaneNormal, flDest);
+
+	return flDest[2] <= 0.7;
+} 
