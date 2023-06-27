@@ -5,8 +5,6 @@
 
 #define rg_get_user_team(%0) get_member(%0, m_iTeam)
 
-new Float:g_flBlindTime[MAX_PLAYERS + 1];
-
 enum STAB_INFO {
 	Float:S_DISTANCE,
 	S_HIT,
@@ -36,19 +34,9 @@ new g_szTypegroup[][] = {
 };
 
 public plugin_init() {
-	register_plugin("Knife stab info", "1.0.1", "OpenHNS"); // Kilabeez, WessTorn
+	register_plugin("Knife stab info", "1.0.2", "OpenHNS"); // Kilabeez, WessTorn
 
-	RegisterHookChain(RG_PlayerBlind, "rgPlayerBlind");
 	RegisterHookChain(RG_CBasePlayer_TraceAttack, "rgTraceAttack");
-}
-
-public client_disconnected(id) {
-	g_flBlindTime[id] = 0.0;
-}
-
-public rgPlayerBlind(id, inflictor, attacker, Float:fadeTime, Float:fadeHold, alpha) {
-	if(fadeHold >= 1.0 && fadeTime > 6.0 && alpha == 255) 
-		g_flBlindTime[id] = get_gametime() + fadeHold;
 }
 
 public rgTraceAttack(id, attacker, Float:flDamage, Float:vecDir[3], tracehandle) {
@@ -58,7 +46,7 @@ public rgTraceAttack(id, attacker, Float:flDamage, Float:vecDir[3], tracehandle)
 	new eInfo[STAB_INFO];
 	eInfo[S_DISTANCE] = get_distance_un(attacker, vecDir);
 	eInfo[S_HIT] = get_tr2(tracehandle, TR_iHitgroup);
-	eInfo[S_FLASHED] = get_gametime() <= g_flBlindTime[attacker] ? true : false;
+	eInfo[S_FLASHED] = IsBlindFull(attacker);
 	eInfo[S_TYPESTAB] = get_type_stab(attacker, flDamage, eInfo[S_DISTANCE], eInfo[S_FLASHED]);
 
 	if(eInfo[S_FLASHED] || eInfo[S_DISTANCE] >= 30.0) {
@@ -141,4 +129,8 @@ stock bool:isUserSurfing(id) {
 	get_tr2(0, TR_vecPlaneNormal, flDest);
 
 	return flDest[2] <= 0.7;
-} 
+}
+
+stock bool:IsBlindFull(pPlayer) {
+	return bool:(Float:get_member(pPlayer, m_blindStartTime) + Float:get_member(pPlayer, m_blindHoldTime) >= get_gametime());
+}
